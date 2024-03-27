@@ -29,7 +29,7 @@ public class Main {
 
         double accelerationStochasticOptimizedMin = timeStochastic / timeStochasticOptimized;
 
-        System.out.println("Sequential Descent Result: " + resultSequentialMin);
+        System.out.println("\nSequential Descent Result: " + resultSequentialMin);
         System.out.println("Sequential Descent Execution time: " + timeSequential + " milliseconds\n");
 
         System.out.println("Stochastic Parallel Descent Result: " + resultStochasticMin);
@@ -77,7 +77,6 @@ public class Main {
         PreviousValues previousValues = new PreviousValues();
 
         for (int i = 0; i < iterations; i++) {
-            CountDownLatch latch = new CountDownLatch(threads);
             for (int j = 0; j < threads; j++) {
                 executor.execute(() -> {
                     double[] localParameters = parameters.clone();
@@ -93,24 +92,12 @@ public class Main {
                     double accuracy = Math.abs(cost - previousValues.getCost());
                     previousValues.setCost(cost);
                     previousValues.setAccuracy(accuracy);
-                    latch.countDown();
                 });
-            }
-            try {
-                latch.await();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
             }
         }
         executor.shutdown();
         System.out.println("Stochastic Gradient Iteration " + iterations + ": Cost = " + previousValues.getCost() + ", Accuracy = " + previousValues.getAccuracy());
 
-        executor.shutdown();
-        try {
-            executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
         return calculateCost(parameters);
     }
 
@@ -135,7 +122,6 @@ public class Main {
         }
         System.out.println("Optimized Parallel Iteration " + iterations + ": Cost = " + previousValues.getCost() + ", Accuracy = " + previousValues.getAccuracy());
 
-        System.out.println();
         return calculateCost(parameters);
     }
 
@@ -156,6 +142,4 @@ public class Main {
                 6 * Math.pow(z, 5) + 1 / Math.pow(Math.cos(z), 2)
         };
     }
-
-
 }
