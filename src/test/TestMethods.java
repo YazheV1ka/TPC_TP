@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit;
 public class TestMethods {
     private static final double LEARNING_RATE = 0.0001;
 
-    public static double runSequentialGradientDescentAccyrancy(double[] parameters, int iterations) {
+    public static double runSequentialGradientDescentAccuracy(double[] parameters, int iterations) {
         double previousCost = 0;
         double accuracy = 0;
         for (int i = 0; i < iterations; i++) {
@@ -26,7 +26,7 @@ public class TestMethods {
         return accuracy;
     }
 
-    public static double runParallelStochasticGradientDescentAccyrancy(double[] parameters, int iterations, int threads) {
+    public static double runParallelStochasticGradientDescentAccuracy(double[] parameters, int iterations, int threads) {
         double accuracy = 0;
         ExecutorService executor = Executors.newFixedThreadPool(threads);
 
@@ -55,7 +55,7 @@ public class TestMethods {
         return accuracy;
     }
 
-    public static double runOptimizedParallelGradientDescentAccyrancy(double[] parameters, int iterations, int threads) {
+    public static double runOptimizedParallelGradientDescentAccuracy(double[] parameters, int iterations, int threads) {
         double previousCost = 0, accuracy = 0;
         for (int i = 0; i < iterations; i++) {
             double[] gradientSum = new double[parameters.length];
@@ -88,11 +88,10 @@ public class TestMethods {
         double x = parameters[0];
         double y = parameters[1];
         double z = parameters[2];
-        double[] gradient = new double[]{
+        return new double[]{
                 6 * Math.pow(x, 5) + Math.cos(x),
                 6 * Math.pow(y, 5) - Math.sin(y),
                 6 * Math.pow(z, 5) + 1 / Math.pow(Math.cos(z), 2)
         };
-        return gradient;
     }
 }

@@ -13,21 +13,21 @@ class MainTest {
     @Test
     void testSequentialGradientDescentEPS() {
         double[] parameters = {1, 1, 1};
-        double result = TestMethods.runSequentialGradientDescentAccyrancy(parameters, iterations);
+        double result = TestMethods.runSequentialGradientDescentAccuracy(parameters, iterations);
         assertTrue(result < eps, "Result is not within the acceptable range");
     }
 
     @Test
     void testParallelStochasticGradientDescentEPS() {
         double[] parameters = {1, 1, 1};
-        double result = TestMethods.runParallelStochasticGradientDescentAccyrancy(parameters, iterations, threads);
+        double result = TestMethods.runParallelStochasticGradientDescentAccuracy(parameters, iterations, threads);
         assertTrue(result < eps, "Result is not within the acceptable range");
     }
 
     @Test
     void testOptimizedParallelGradientDescentEPS() {
         double[] parameters = {1, 1, 1};
-        double result = TestMethods.runOptimizedParallelGradientDescentAccyrancy(parameters, iterations, threads);
+        double result = TestMethods.runOptimizedParallelGradientDescentAccuracy(parameters, iterations, threads);
         assertTrue(result < eps, "Result is not within the acceptable range");
     }
 
@@ -35,7 +35,7 @@ class MainTest {
     void testSequentialGradientDescentEPSOptimized() {
         //false
         double[] parameters = {1, 1, 1};
-        double result = TestMethods.runSequentialGradientDescentAccyrancy(parameters, iterations);
+        double result = TestMethods.runSequentialGradientDescentAccuracy(parameters, iterations);
         assertTrue(result < eps_optimized, "Result is not within the acceptable range");
     }
 
@@ -43,7 +43,7 @@ class MainTest {
     void testParallelStochasticGradientDescentEPSOptimized() {
         //false
         double[] parameters = {1, 1, 1};
-        double result = TestMethods.runParallelStochasticGradientDescentAccyrancy(parameters, iterations, threads);
+        double result = TestMethods.runParallelStochasticGradientDescentAccuracy(parameters, iterations, threads);
         assertTrue(result < eps_optimized, "Result is not within the acceptable range");
     }
 
@@ -51,7 +51,7 @@ class MainTest {
     void testOptimizedParallelGradientDescentEPSOptimized() {
         //true
         double[] parameters = {1, 1, 1};
-        double result = TestMethods.runOptimizedParallelGradientDescentAccyrancy(parameters, iterations, threads);
+        double result = TestMethods.runOptimizedParallelGradientDescentAccuracy(parameters, iterations, threads);
         assertTrue(result < eps_optimized, "Result is not within the acceptable range");
     }
 }

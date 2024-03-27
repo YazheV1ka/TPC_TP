@@ -15,25 +15,28 @@ public class Main {
         double startTimeSequentialMin = System.nanoTime();
         double resultSequentialMin = runSequentialGradientDescent(parameters, iterations);
         double endTimeSequentialMin = System.nanoTime();
+        double timeSequential = (endTimeSequentialMin - startTimeSequentialMin) / 1e6;
 
         double startTimeStochasticMin = System.nanoTime();
         double resultStochasticMin = runParallelStochasticGradientDescent(parameters, iterations, threads);
         double endTimeStochasticMin = System.nanoTime();
+        double timeStochastic = (endTimeStochasticMin - startTimeStochasticMin) / 1e6;
 
         double startTimeOptimizedMin = System.nanoTime();
         double resultOptimizedMin = runOptimizedParallelGradientDescent(parameters, iterations, threads);
         double endTimeOptimizedMin = System.nanoTime();
+        double timeStochasticOptimized = (endTimeOptimizedMin - startTimeOptimizedMin) / 1e6;
 
-        double accelerationStochasticOptimizedMin = (endTimeOptimizedMin - startTimeOptimizedMin) / (endTimeStochasticMin - startTimeStochasticMin);
+        double accelerationStochasticOptimizedMin = timeStochastic / timeStochasticOptimized;
 
         System.out.println("Sequential Descent Result: " + resultSequentialMin);
-        System.out.println("Sequential Descent Execution time: " + (endTimeSequentialMin - startTimeSequentialMin) / 1e6 + " milliseconds\n");
+        System.out.println("Sequential Descent Execution time: " + timeSequential + " milliseconds\n");
 
         System.out.println("Stochastic Parallel Descent Result: " + resultStochasticMin);
-        System.out.println("Stochastic Parallel Descent Execution time: " + (endTimeStochasticMin - startTimeStochasticMin) / 1e6 + " milliseconds\n");
+        System.out.println("Stochastic Parallel Descent Execution time: " + timeStochastic + " milliseconds\n");
 
         System.out.println("Optimized Parallel Descent Result: " + resultOptimizedMin);
-        System.out.println("Optimized Parallel Descent Execution time: " + (endTimeOptimizedMin - startTimeOptimizedMin) / 1e6 + " milliseconds");
+        System.out.println("Optimized Parallel Descent Execution time: " + timeStochasticOptimized + " milliseconds");
         System.out.println("Optimized Parallel Descent Acceleration: " + accelerationStochasticOptimizedMin);
     }
 
@@ -53,37 +56,55 @@ public class Main {
     }
 
     public static double runSequentialGradientDescent(double[] parameters, int iterations) {
-        double previousCost = 0;
+        PreviousValues previousValues = new PreviousValues();
+
         for (int i = 0; i < iterations; i++) {
             double[] gradient = calculateGradient(parameters);
             for (int j = 0; j < parameters.length; j++) {
                 parameters[j] -= LEARNING_RATE * gradient[j];
             }
             double cost = calculateCost(parameters);
-            double accuracy = Math.abs(cost - previousCost);
-            previousCost = cost;
-            System.out.println("Sequential Iteration " + (i + 1) + ": Cost = " + cost + ", Accuracy = " + accuracy);
+            double accuracy = Math.abs(cost - previousValues.getCost());
+            previousValues.setCost(cost);
+            previousValues.setAccuracy(accuracy);
         }
-        System.out.println();
+        System.out.println("\nSequential Gradient Iteration " + iterations + ": Cost = " + previousValues.getCost() + ", Accuracy = " + previousValues.getAccuracy());
         return calculateCost(parameters);
     }
 
     public static double runParallelStochasticGradientDescent(double[] parameters, int iterations, int threads) {
         ExecutorService executor = Executors.newFixedThreadPool(threads);
+        PreviousValues previousValues = new PreviousValues();
+
         for (int i = 0; i < iterations; i++) {
+            CountDownLatch latch = new CountDownLatch(threads);
             for (int j = 0; j < threads; j++) {
                 executor.execute(() -> {
                     double[] localParameters = parameters.clone();
                     double[] gradient = calculateGradient(localParameters);
+
                     for (int k = 0; k < localParameters.length; k++) {
                         localParameters[k] -= LEARNING_RATE * gradient[k];
                     }
                     synchronized (Main.class) {
                         System.arraycopy(localParameters, 0, parameters, 0, localParameters.length);
                     }
+                    double cost = calculateCost(parameters);
+                    double accuracy = Math.abs(cost - previousValues.getCost());
+                    previousValues.setCost(cost);
+                    previousValues.setAccuracy(accuracy);
+                    latch.countDown();
                 });
             }
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
+        executor.shutdown();
+        System.out.println("Stochastic Gradient Iteration " + iterations + ": Cost = " + previousValues.getCost() + ", Accuracy = " + previousValues.getAccuracy());
+
         executor.shutdown();
         try {
             executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
@@ -94,8 +115,8 @@ public class Main {
     }
 
     public static double runOptimizedParallelGradientDescent(double[] parameters, int iterations, int threads) {
-        double previousCost = 0;
-        double previousAccuracy = 0;
+        PreviousValues previousValues = new PreviousValues();
+
         for (int i = 0; i < iterations; i++) {
             double[] gradientSum = new double[parameters.length];
             for (int j = 0; j < threads; j++) {
@@ -108,11 +129,11 @@ public class Main {
                 parameters[j] -= LEARNING_RATE * (gradientSum[j] / threads);
             }
             double cost = calculateCost(parameters);
-            double accuracy = Math.abs(cost - previousCost);
-            previousCost = cost;
-            previousAccuracy = accuracy;
+            double accuracy = Math.abs(cost - previousValues.getCost());
+            previousValues.setCost(cost);
+            previousValues.setAccuracy(accuracy);
         }
-        System.out.println("Optimized Parallel Iteration " + iterations + ": Cost = " + previousCost + ", Accuracy = " + previousAccuracy);
+        System.out.println("Optimized Parallel Iteration " + iterations + ": Cost = " + previousValues.getCost() + ", Accuracy = " + previousValues.getAccuracy());
 
         System.out.println();
         return calculateCost(parameters);
