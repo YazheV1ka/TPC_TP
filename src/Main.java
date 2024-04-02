@@ -46,17 +46,17 @@ public class Main {
     }
 
 
-    private static int getIterationsFromKeyboard(Scanner scanner) {
+    public static int getIterationsFromKeyboard(Scanner scanner) {
         System.out.print("Enter the number of iterations: ");
         return scanner.nextInt();
     }
 
-    private static int getThreadsFromKeyboard(Scanner scanner) {
+    public static int getThreadsFromKeyboard(Scanner scanner) {
         System.out.print("Enter the number of threads: ");
         return scanner.nextInt();
     }
 
-    private static double[] generateInitialParameters() {
+    public static double[] generateInitialParameters() {
         return new double[]{1, 1, 1};
     }
 
@@ -115,7 +115,6 @@ public class Main {
             return Double.NaN;
         }
 
-
         return calculateFunction(parameters);
     }
 
@@ -162,14 +161,14 @@ public class Main {
     }
 
 
-    private static double calculateFunction(double[] parameters) {
+    public static double calculateFunction(double[] parameters) {
         double x = parameters[0];
         double y = parameters[1];
         double z = parameters[2];
         return Math.pow(x, 6) + Math.pow(y, 6) + Math.pow(z, 6) + Math.sin(x) + Math.cos(y) + Math.tan(z);
     }
 
-    private static double calculateFunction(AtomicReference<double[]> parameters) {
+    public static double calculateFunction(AtomicReference<double[]> parameters) {
         double[] params = parameters.get();
         double x = params[0];
         double y = params[1];
@@ -178,7 +177,7 @@ public class Main {
     }
 
 
-    private static double[] calculateGradient(double[] parameters) {
+    public static double[] calculateGradient(double[] parameters) {
         double x = parameters[0];
         double y = parameters[1];
         double z = parameters[2];
