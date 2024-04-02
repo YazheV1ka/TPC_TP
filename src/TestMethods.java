@@ -2,7 +2,7 @@ import java.util.Scanner;
 import java.util.function.Function;
 
 public class TestMethods {
-    private static final double LEARNING_RATE = 0.01;
+    private static final double LEARNING_RATE = 0.1;
     private static final double NUM_OF_REPETITION = 20;
 
     public static void main(String[] args) {
