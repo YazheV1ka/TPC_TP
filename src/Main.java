@@ -1,8 +1,11 @@
+import java.math.BigDecimal;
 import java.util.Scanner;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class Main {
-    private static final double LEARNING_RATE = 0.0001;
+    private static final double LEARNING_RATE = 0.001;
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
@@ -14,11 +17,13 @@ public class Main {
 
         double startTimeSequentialMin = System.nanoTime();
         double resultSequentialMin = runSequentialGradientDescent(parameters, iterations);
+        System.out.println("\n");
         double endTimeSequentialMin = System.nanoTime();
         double timeSequential = (endTimeSequentialMin - startTimeSequentialMin) / 1e6;
 
         double startTimeStochasticMin = System.nanoTime();
-        double resultStochasticMin = runParallelStochasticGradientDescent(parameters, iterations, threads);
+        double resultStochasticMin = runParallelGradientDescent(parameters, iterations, threads);
+        System.out.println("\n");
         double endTimeStochasticMin = System.nanoTime();
         double timeStochastic = (endTimeStochasticMin - startTimeStochasticMin) / 1e6;
 
@@ -32,8 +37,8 @@ public class Main {
         System.out.println("\nSequential Descent Result: " + resultSequentialMin);
         System.out.println("Sequential Descent Execution time: " + timeSequential + " milliseconds\n");
 
-        System.out.println("Stochastic Parallel Descent Result: " + resultStochasticMin);
-        System.out.println("Stochastic Parallel Descent Execution time: " + timeStochastic + " milliseconds\n");
+        System.out.println("Parallel Descent Result: " + resultStochasticMin);
+        System.out.println("Parallel Descent Execution time: " + timeStochastic + " milliseconds\n");
 
         System.out.println("Optimized Parallel Descent Result: " + resultOptimizedMin);
         System.out.println("Optimized Parallel Descent Execution time: " + timeStochasticOptimized + " milliseconds");
@@ -59,80 +64,121 @@ public class Main {
         PreviousValues previousValues = new PreviousValues();
 
         for (int i = 0; i < iterations; i++) {
-            double[] gradient = calculateGradient(parameters);
+            double[] gradient = Main.calculateGradient(parameters);
             for (int j = 0; j < parameters.length; j++) {
                 parameters[j] -= LEARNING_RATE * gradient[j];
             }
-            double cost = calculateCost(parameters);
-            double accuracy = Math.abs(cost - previousValues.getCost());
+            double cost = Main.calculateFunction(parameters);
+            BigDecimal accuracy = BigDecimal.valueOf(Math.abs(cost - previousValues.getCost()));
             previousValues.setCost(cost);
             previousValues.setAccuracy(accuracy);
+            System.out.println("[Sequential Gradient] Iteration " + i + ": Cost = " + previousValues.getCost() + ", Accuracy = " + previousValues.getAccuracy().toPlainString());
         }
-        System.out.println("\nSequential Gradient Iteration " + iterations + ": Cost = " + previousValues.getCost() + ", Accuracy = " + previousValues.getAccuracy());
-        return calculateCost(parameters);
+        return calculateFunction(parameters);
     }
 
-    public static double runParallelStochasticGradientDescent(double[] parameters, int iterations, int threads) {
+
+    public static double runParallelGradientDescent(double[] parameters, int iterations, int threads) {
         ExecutorService executor = Executors.newFixedThreadPool(threads);
+        AtomicInteger iterationsCount = new AtomicInteger(0);
         PreviousValues previousValues = new PreviousValues();
 
-        for (int i = 0; i < iterations; i++) {
-            for (int j = 0; j < threads; j++) {
-                executor.execute(() -> {
-                    double[] localParameters = parameters.clone();
-                    double[] gradient = calculateGradient(localParameters);
+        try {
+            int iterationsPerThread = iterations / threads;
 
-                    for (int k = 0; k < localParameters.length; k++) {
-                        localParameters[k] -= LEARNING_RATE * gradient[k];
+            for (int t = 0; t < threads; t++) {
+                final int startIteration = t * iterationsPerThread;
+                final int endIteration = (t + 1) * iterationsPerThread;
+
+                executor.submit(() -> {
+                    for (int i = startIteration; i < endIteration; i++) {
+                        double[] gradient = calculateGradient(parameters);
+                        synchronized (parameters) {
+                            for (int k = 0; k < parameters.length; k++) {
+                                parameters[k] -= LEARNING_RATE * gradient[k];
+                            }
+                        }
+                        iterationsCount.incrementAndGet();
+                        double cost = calculateFunction(parameters);
+                        BigDecimal accuracy = BigDecimal.valueOf(Math.abs(cost - previousValues.getCost()));
+                        previousValues.setCost(cost);
+                        previousValues.setAccuracy(accuracy);
+                        System.out.println("[Parallel Gradient] Iteration " + i + ": Cost = " + previousValues.getCost() + ", Accuracy = " + previousValues.getAccuracy().toPlainString());
                     }
-                    synchronized (Main.class) {
-                        System.arraycopy(localParameters, 0, parameters, 0, localParameters.length);
-                    }
-                    double cost = calculateCost(parameters);
-                    double accuracy = Math.abs(cost - previousValues.getCost());
-                    previousValues.setCost(cost);
-                    previousValues.setAccuracy(accuracy);
                 });
             }
-        }
-        executor.shutdown();
-        System.out.println("Stochastic Gradient Iteration " + iterations + ": Cost = " + previousValues.getCost() + ", Accuracy = " + previousValues.getAccuracy());
 
-        return calculateCost(parameters);
+            executor.shutdown();
+            executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            return Double.NaN;
+        }
+
+
+        return calculateFunction(parameters);
     }
 
-    public static double runOptimizedParallelGradientDescent(double[] parameters, int iterations, int threads) {
+    public static double runOptimizedParallelGradientDescent(double[] initialParameters, int iterations, int threads) {
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+        AtomicInteger iterationsCount = new AtomicInteger(0);
+        AtomicReference<double[]> parameters = new AtomicReference<>(initialParameters);
         PreviousValues previousValues = new PreviousValues();
 
-        for (int i = 0; i < iterations; i++) {
-            double[] gradientSum = new double[parameters.length];
-            for (int j = 0; j < threads; j++) {
-                double[] gradient = calculateGradient(parameters);
-                for (int k = 0; k < parameters.length; k++) {
-                    gradientSum[k] += gradient[k];
-                }
-            }
-            for (int j = 0; j < parameters.length; j++) {
-                parameters[j] -= LEARNING_RATE * (gradientSum[j] / threads);
-            }
-            double cost = calculateCost(parameters);
-            double accuracy = Math.abs(cost - previousValues.getCost());
-            previousValues.setCost(cost);
-            previousValues.setAccuracy(accuracy);
-        }
-        System.out.println("Optimized Parallel Iteration " + iterations + ": Cost = " + previousValues.getCost() + ", Accuracy = " + previousValues.getAccuracy());
+        try {
+            int iterationsPerThread = iterations / threads;
 
-        return calculateCost(parameters);
+            for (int t = 0; t < threads; t++) {
+                final int startIteration = t * iterationsPerThread;
+                final int endIteration = (t + 1) * iterationsPerThread;
+
+                executor.submit(() -> {
+                    for (int i = startIteration; i < endIteration; i++) {
+                        double[] gradient = calculateGradient(parameters.get());
+                        double[] updatedParams = new double[parameters.get().length];
+                        for (int k = 0; k < parameters.get().length; k++) {
+                            updatedParams[k] = parameters.get()[k] - LEARNING_RATE * gradient[k];
+                        }
+                        parameters.set(updatedParams);
+                        iterationsCount.incrementAndGet();
+                        double cost = calculateFunction(parameters);
+                        BigDecimal accuracy = BigDecimal.valueOf(Math.abs(cost - previousValues.getCost()));
+                        previousValues.setCost(cost);
+                        previousValues.setAccuracy(accuracy);
+                        System.out.println("[Optimized Gradient] Iteration " + i + ": Cost = " + previousValues.getCost() + ", Accuracy = " + previousValues.getAccuracy().toPlainString());
+
+                    }
+                });
+            }
+
+            executor.shutdown();
+            executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            return Double.NaN;
+        }
+
+        return calculateFunction(parameters);
     }
 
-    private synchronized static double calculateCost(double[] parameters) {
+
+    private static double calculateFunction(double[] parameters) {
         double x = parameters[0];
         double y = parameters[1];
         double z = parameters[2];
-        return Math.pow(x, 6) + Math.pow(y, 6)+Math.pow(z, 6)+Math.sin(x)+Math.cos(y)+Math.tan(z);
+        return Math.pow(x, 6) + Math.pow(y, 6) + Math.pow(z, 6) + Math.sin(x) + Math.cos(y) + Math.tan(z);
     }
 
-    private synchronized static double[] calculateGradient(double[] parameters) {
+    private static double calculateFunction(AtomicReference<double[]> parameters) {
+        double[] params = parameters.get();
+        double x = params[0];
+        double y = params[1];
+        double z = params[2];
+        return Math.pow(x, 6) + Math.pow(y, 6) + Math.pow(z, 6) + Math.sin(x) + Math.cos(y) + Math.tan(z);
+    }
+
+
+    private static double[] calculateGradient(double[] parameters) {
         double x = parameters[0];
         double y = parameters[1];
         double z = parameters[2];

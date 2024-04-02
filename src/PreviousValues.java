@@ -1,6 +1,8 @@
+import java.math.BigDecimal;
+
 class PreviousValues {
     double cost = 0;
-    double accuracy = 0;
+    BigDecimal accuracy = BigDecimal.valueOf(0);
 
     public double getCost() {
         return cost;
@@ -10,11 +12,11 @@ class PreviousValues {
         this.cost = cost;
     }
 
-    public double getAccuracy() {
+    public BigDecimal getAccuracy() {
         return accuracy;
     }
 
-    public void setAccuracy(double accuracy) {
+    public void setAccuracy(BigDecimal accuracy) {
         this.accuracy = accuracy;
     }
 }
