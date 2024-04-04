@@ -113,6 +113,10 @@ public class Main {
                         previousValues.setCost(cost);
                         previousValues.setAccuracy(accuracy);
                         System.out.println("[Parallel Gradient] Iteration " + i + ": Cost = " + previousValues.getCost() + ", Accuracy = " + previousValues.getAccuracy().toPlainString());
+
+                        if (accuracy.compareTo(epsilon) < 0) {
+                            break;
+                        }
                     }
                 });
             }
@@ -130,52 +134,51 @@ public class Main {
 
     public static double runOptimizedParallelGradientDescent(double[] parameters, int iterations, int threads) {
         ExecutorService executor = Executors.newFixedThreadPool(threads);
-        Queue<double[]> gradientQueue = new ConcurrentLinkedQueue<>();
         AtomicInteger iterationsCount = new AtomicInteger(0);
         PreviousValues previousValues = new PreviousValues();
+        final Object lock = new Object();
 
         try {
             int iterationsPerThread = iterations / threads;
-
-            CompletableFuture<?>[] futures = new CompletableFuture[threads];
 
             for (int t = 0; t < threads; t++) {
                 final int startIteration = t * iterationsPerThread;
                 final int endIteration = (t + 1) * iterationsPerThread;
 
-                futures[t] = CompletableFuture.runAsync(() -> {
+                executor.submit(() -> {
+                    double[] localParameters = Arrays.copyOf(parameters, parameters.length);
                     for (int i = startIteration; i < endIteration; i++) {
                         double[] gradient;
-                        if (gradientQueue.isEmpty()) {
-                            gradient = calculateGradient(parameters);
-                        } else {
-                            gradient = gradientQueue.poll();
+                        synchronized (lock){
+                            gradient = calculateGradient(localParameters);
+                            for (int k = 0; k < parameters.length; k++) {
+                                localParameters[k] -= LEARNING_RATE * gradient[k];
+                            }
                         }
-                        for (int k = 0; k < parameters.length; k++) {
-                            parameters[k] -= LEARNING_RATE * gradient[k];
-                        }
+
                         iterationsCount.incrementAndGet();
-                        double cost = calculateFunction(parameters);
+                        double cost = calculateFunction(localParameters);
                         BigDecimal accuracy = BigDecimal.valueOf(Math.abs(cost - previousValues.getCost()));
                         previousValues.setCost(cost);
                         previousValues.setAccuracy(accuracy);
-                        System.out.println("[Parallel Gradient] Iteration " + i + ": Cost = " + previousValues.getCost() + ", Accuracy = " + previousValues.getAccuracy().toPlainString());
+                        System.out.println("[Optimized Gradient] Iteration " + i + ": Cost = " + previousValues.getCost() + ", Accuracy = " + previousValues.getAccuracy().toPlainString());
+
+                        if (accuracy.compareTo(epsilon) < 0) {
+                            break;
+                        }
                     }
-                }, executor);
+                });
             }
 
-            CompletableFuture.allOf(futures).get();
-
-        } catch (InterruptedException | ExecutionException e) {
+            executor.shutdown();
+            executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+        } catch (InterruptedException e) {
             e.printStackTrace();
             return Double.NaN;
-        } finally {
-            executor.shutdown();
         }
 
         return calculateFunction(parameters);
     }
-
 
     public static double calculateFunction(double[] parameters) {
         double x = parameters[0];
